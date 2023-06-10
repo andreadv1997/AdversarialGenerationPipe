@@ -9,7 +9,6 @@ from tensorflow.python.platform import flags
 import logging
 
 
-#from mlp_test_filtered import MultilayerPerceptron ADDESTRAMENTO CON ESEMPI AVVERSARI
 from mlp_test import MultilayerPerceptron #ADDESTRAMENTO NORMALE
 from cleverhans.utils_mnist import data_mnist
 from cleverhans.utils_tf import model_train, model_eval
@@ -17,16 +16,14 @@ from cleverhans.attacks import FastGradientMethod, BasicIterativeMethod, FastFea
 from cleverhans_tutorials.tutorial_models import make_basic_mlp_non_conv, make_basic_cnn, make_basic_mlp_non_conv2
 from cleverhans.utils import AccuracyReport, set_log_level
 from cleverhans_tutorials.mnist_blackbox import substitute_model
-#from data import preprocess, get_data_from_file
+
 from dataPrep import preprocess, get_data_from_file
 from pathlib import Path
 from sklearn.preprocessing import MaxAbsScaler, StandardScaler
 import os
 
 from sklearn.metrics import recall_score
-#from decisionTree_filtered_training import retrain, decisionTree, compute_metrics as cmDT, adversarialTraining as advTrainDT ADDESTRAMENTO CON ESEMPI AVVERSARI
-from decisionTreeNEW import retrain, decisionTree, compute_metrics as cmDT, adversarialTraining as advTrainDT #ADDESTRAMENTO NORMALE
-#from randomForest_filtered import randomForest, compute_metrics as cmRF, adversarialTraining as advTrainRF ADDESTRAMENTO CON ESEMPI AVVERSARI
+from decisionTree import retrain, decisionTree, compute_metrics as cmDT, adversarialTraining as advTrainDT #ADDESTRAMENTO NORMALE
 from randomForest import randomForest, compute_metrics as cmRF, adversarialTraining as advTrainRF #ADDESTRAMENTO NORMALE
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
@@ -183,8 +180,7 @@ mlp = None
 algorithm_under_test = ""
 
 def find_n_neighbours(df,n):
-    order = np.argsort(df.values, axis=1)[:, :n] #controllare comportamento di questa istruzion. Questa istruzione non e' necessaria
-    #df = df.apply(lambda x: pd.Series(x.sort_values(ascending=True).iloc[:n].index,index=['top{}'.format(i) for i in range(1, n + 1)]), axis=1)
+    order = np.argsort(df.values, axis=1)[:, :n]
     df = df.apply(lambda x: pd.Series(x.sort_values(ascending=False).iloc[:n].index,index=['top{}'.format(i) for i in range(1, n+1)]), axis=1)
     # il dataset restituito e' quello contenente gli indici dei valori top n
     return df
@@ -212,17 +208,14 @@ def User_item_score(user,item, sim_user_n, similarity_matrix, oracle, n):
     final_score =  (nume / deno)
     return final_score
 
-def mnist_tutorial(train_start=0, train_end=8363, test_start=0,
+def generate_adversarial_samples(test_start=0,
                    test_end=2092, nb_epochs=6, batch_size=128,
                    learning_rate=0.001,
                    clean_train=True,
                    testing=False,
-                   backprop_through_attack=False,
-                   nb_filters=64, num_threads=None, gridSearch=True):
+                   num_threads=None, gridSearch=True):
     """
-    MNIST cleverhans tutorial
-    :param train_start: index of first training set example
-    :param train_end: index of last training set example
+    Generate Adversarial Samples
     :param test_start: index of first test set example
     :param test_end: index of last test set example
     :param nb_epochs: number of epochs to train model
@@ -232,11 +225,8 @@ def mnist_tutorial(train_start=0, train_end=8363, test_start=0,
                         before performing adversarial training.
     :param testing: if true, complete an AccuracyReport for unit tests
                     to verify that performance is adequate
-    :param backprop_through_attack: If True, backprop through adversarial
-                                    example construction process during
-                                    adversarial training.
     :param clean_train: if true, train on clean examples
-    :return: an AccuracyReport object
+    :return: dataset containing non scaled adversarial samples, array of original labels, scaler adopted for conversion, original dataset as read from file
     """
 
     # Object used to keep track of (and return) key accuracies
@@ -255,14 +245,13 @@ def mnist_tutorial(train_start=0, train_end=8363, test_start=0,
         config_args = {}
     sess = tf.Session(config=tf.ConfigProto(**config_args))
 
-    #qui i dati vengono ggia' privati dei campi non necessari
-    #fileTrain = base_dir+'/bin/ADV-training.csv' VERSIONE DATI CICIDS
+    #qui i dati vengono gia' privati dei campi non necessari
     fileTrain = base_dir+'/updatedInput/ADV-training.csv' #VERSIONE DATI DEI BELGI
     datasetTrain,_ = get_data_from_file(fileTrain)
-    #fileTest = base_dir+'/bin/ADV-baseline-PARTE1.csv' VERSIONE DATI CICIDS
+
     fileTest = base_dir+'/updatedInput/ADVBASE1-baseAdv-test.csv' #VERSIONE DATI DEI BELGI
     datasetTest, originalTestDataset = get_data_from_file(fileTest)
-    #fileVal = base_dir + '/bin/ADV-baseline-PARTE2.csv' VERSIONE DATI CICIDS
+
     fileVal = base_dir + '/updatedInput/ADVBASE2-cfOracle.csv' #VERSIONE DATI DEI BELGI
     datasetVal,_ = get_data_from_file(fileVal)
 
@@ -272,15 +261,7 @@ def mnist_tutorial(train_start=0, train_end=8363, test_start=0,
     X_test, Y_test, _ = preprocess(datasetTest, True)
     X_FIL, Y_FIL, _ = preprocess(datasetVal, False)
 
-
-
-
-    train_end = X_train.shape[0]
     test_end = X_test.shape[0]
-    #y_target = np.empty((Y_test.shape[0], Y_test.shape[1]))
-
-
-    protocol_train = X_train[:,0]
     protocol_test = X_test[:,0]
 
 
@@ -332,13 +313,6 @@ def mnist_tutorial(train_start=0, train_end=8363, test_start=0,
     #fgsm_params = {'clip_min': 0.0, 'clip_max': 1.1, 'eps': 0.5, 'xi': 0.1, 'num_iterations': 15}  # VirtualADV
     #fgsm_params = {'clip_min': 0.0, 'clip_max': 1.1, 'confidence': 0.5, 'learning_rate': 0.1, 'batch_size': 1,'binary_search_steps': 10, 'max_iterations': 5, 'abort_early': False,'initial_const': 1}  # CW
 
-
-    #Set of fist group of parameters (thesis)
-    #fgsm_params = {'clip_min': 2.2250738585072014e-308, 'clip_max': 1.7976931348623157e+308, 'eps': 0.1} #FGSM
-    #fgsm_params = {'clip_min': 2.2250738585072014e-308, 'clip_max': 1.7976931348623157e+308, 'theta': 0.1, 'gamma': 0.5}  # JSMA
-    #fgsm_params = {'clip_min': 2.2250738585072014e-308, 'clip_max': 1.7976931348623157e+308, 'nb_candidate': 2,'nb_classes': 2, 'overshoot':0.9, 'max_iter':15}  # DeepFool
-    #fgsm_params = {'clip_min':2.2250738585072014e-308,'clip_max': 1.7976931348623157e+308,'eps': 3.5,'xi':3.5,'num_iterations':1} #VirtualADV
-
     rng = np.random.RandomState([2017, 8, 30]) #riproducibilita'
 
     if clean_train:
@@ -350,16 +324,19 @@ def mnist_tutorial(train_start=0, train_end=8363, test_start=0,
             # Evaluate the accuracy of the MNIST model on legitimate test
             # examples
             eval_params = {'batch_size': batch_size}
-            acc = model_eval(
+            acc,prec,recall,f1 = model_eval(
                 sess, x, y, preds, X_test_adv_mlp, Y_test, args=eval_params)
             report.clean_train_clean_eval = acc
             assert X_test.shape[0] == test_end - test_start, X_test.shape
             print('Test accuracy on legitimate examples: %0.4f' % acc)
+            print('Test precision on legitimate examples: %0.4f' % prec)
+            print('Test recall on legitimate examples: %0.4f' % recall)
+            print('Test f1 on legitimate examples: %0.4f' % f1)
         model_train(sess, x, y, preds, X_train_adv_mlp, Y_train, evaluate=evaluate, args=train_params, rng=rng, var_list=model.get_params())
         # Calculate training error
         if testing:
             eval_params = {'batch_size': batch_size}
-            acc = model_eval(
+            acc,prec,recall,f1 = model_eval(
                 sess, x, y, preds, X_train_adv_mlp, Y_train, args=eval_params)
             report.train_clean_train_clean_eval = acc
 
@@ -376,12 +353,19 @@ def mnist_tutorial(train_start=0, train_end=8363, test_start=0,
 
         # Evaluate the accuracy of the MNIST model on adversarial examples
         eval_par = {'batch_size': batch_size}
-        acc = model_eval(sess, x, y, preds_adv, X_test_adv_mlp, Y_test, args=eval_par)
+        acc,prec,recall,f1 = model_eval(sess, x, y, preds_adv, X_test_adv_mlp, Y_test, args=eval_par)
         print('Test accuracy on adversarial examples: %0.4f\n' % acc)
+        print('Test precision on legitimate examples: %0.4f' % prec)
+        print('Test recall on legitimate examples: %0.4f' % recall)
+        print('Test f1 on legitimate examples: %0.4f' % f1)
+
         report.clean_train_adv_eval = acc
 
         #global
-        dict_General_values['MLPaccuracy'] = acc
+        dict_General_values['MLPAccuracy'] = acc
+        dict_General_values['MLPPrecision']=prec
+        dict_General_values['MLPRecall']=recall
+        dict_General_values['MLPF1']=f1
 
         #exit()
 
@@ -399,219 +383,73 @@ def mnist_tutorial(train_start=0, train_end=8363, test_start=0,
 
         adversarial_s = adv_x.eval({x:X_test_adv_mlp}, session=sess)
         original_Y_Test = np.copy(Y_test)
+        return adversarial_s, Y_test, advScaler, originalTestDataset
 
+
+def get_sanitize_adversarial_samples(raw_adversarial_samples=None, original_samples= None, original_labels= None, protocol_column=None, advScaler=None, adv_file_name=None, originalTestDataset=None):
+    """
+       Execute Sanity Check on a set of raw adversarial
+       :param raw_adversarial_samples: dataset contaning adversarial samples
+       :param original_samples: dataset containing original samples
+       :param original_labels: array contaning the labels
+       :param protocol_column: array containing original values for "Protocol" value
+       :param advScaler: scaler used in previous steps of pipe. It is necessary for sanity check method
+       :param adv_file_name: string containing the name of the file where the results will be saved
+       :param originalTestDataset: original dataset of starting samples
+       :return: dataset containing non scaled representative adversarial samples, corresponding original samples and related labels
+    """
 
         #####Solo  per DeepFool######
-        shape = adversarial_s.shape[0]
-        i = 0
-        print("ADV s shape pre sanity\n\n")
-        print(adversarial_s.shape)
-        while i < shape:
-            if (np.isinf(adversarial_s[i]).any() or np.isnan(adversarial_s[i]).any()):
-                adversarial_s = np.delete(adversarial_s, obj=i, axis=0)
-                X_test = np.delete(X_test, obj=i, axis=0)
-                Y_test = np.delete(Y_test, obj=i, axis=0)
-                protocol_test = np.delete(protocol_test, obj=i, axis=0) #riaggiorna dimensione dell'array di protocol per DeepFool
+    shape = raw_adversarial_samples.shape[0]
+    i = 0
+    print("ADV s shape pre sanity\n\n")
+    print(raw_adversarial_samples.shape)
+    while i < shape:
+          if (np.isinf(raw_adversarial_samples[i]).any() or np.isnan(raw_adversarial_samples[i]).any()):
+                raw_adversarial_samples = np.delete(raw_adversarial_samples, obj=i, axis=0)
+                original_samples = np.delete(original_samples, obj=i, axis=0)
+                original_labels = np.delete(original_labels, obj=i, axis=0)
+                protocol_column = np.delete(protocol_column, obj=i, axis=0) #riaggiorna dimensione dell'array di protocol per DeepFool
                 originalTestDataset.drop(originalTestDataset.index[i], inplace= True)###
                 shape = shape - 1
-            else:
-                i += 1
+          else:
+            i += 1
 
-        print("ADV s shape pre sanity\n")
-        print(adversarial_s.shape)
-        print(originalTestDataset.shape)
-        originalTestDataset.reset_index(drop=True, inplace=True)
-        # QUI I SAMPLE SONO NON SCALATI
-        adversarial_samples, X_test, Y_test = sannity_check_adv(adversarial_s, protocol_test, advScaler, X_test, Y_test, adv_file_name, originalTestDataset)
-        print(adversarial_samples.shape)
-        #pd.DataFrame(np.concatenate((adversarial_samples, Y_test[:,0].reshape(Y_test.shape[0],1)), axis=1)).to_csv(base_dir+"/adversarialsVAM_FILTERED_CASE.csv", index=False, header=features)
-        #exit()
+    print("ADV s shape pre sanity\n")
+    print(raw_adversarial_samples.shape)
+    print(originalTestDataset.shape)
+    originalTestDataset.reset_index(drop=True, inplace=True)
 
+    # QUI I SAMPLE SONO NON SCALATI
+    adversarial_samples, X_test, Y_test = sannity_check_adv(raw_adversarial_samples, protocol_test, advScaler, original_samples, original_labels, adv_file_name, originalTestDataset)
+    print(adversarial_samples.shape)
 
-        global dt
-        dt,_,_,_,_,_ = decisionTree(gridSearch)  # contiene il calcolo delle metriche per il file MOD-test
-        global rf
-        rf,_,_,_,_,_ = randomForest(gridSearch)  # contiene il calcolo delle metriche per il file MOD-test
-        global mlp
-        mlp = MultilayerPerceptron(input_dim=X_test.shape[1])
-
-        print(X_test)
-
-        #*****CALCOLO RISULTATI ORIGINALI (X TEST)*****
-        prediction_original_DT = dt.predict(X_test)  # previous X_test
-        prediction_original_RF = rf.predict(X_test)
-        prediction_original_MLP = mlp.predict(X_test)
-
-        dictionary_X_Test_DT=cmDT(Y_test, prediction_original_DT) #.flatten per il random forest
-        dictionary_X_Test_RF = cmRF(Y_test, prediction_original_RF)
-        dictionary_X_Test_MLP = mlp.evaluate(prediction_original_MLP, Y_test)
-
-        printResults(dictionary_X_Test_DT, dictionary_X_Test_RF, dictionary_X_Test_MLP, headerString="*****CALCOLO RISULTATI ORIGINALI (X TEST)*****")
+    return adversarial_samples, X_test, Y_tes
 
 
+def get_representative_samples(X_FIL=None, Y_FIL=None, X_test=None, Y_test=None, adversarial_samples=None, adv_file_name=None,originalTestDataset=None):
+    """
+        Execute Sanity Check on a set of raw adversarial
+        :param X_FIL: oracle used for collaborative filtering
+        :param Y_FIL: label used for collaborative filtering
+        :param X_Test: dataset containing original samples
+        :param Y_Test: original labels
+        :param adversarial_samples: representative adversarial samples
+        :param adv_file_name: string containing the name of the file where the results will be saved
+        :param originalTestDataset: original dataset of starting samples
+        :return: dataset containing non scaled sanitized and representative adversarial samples, corresponding original samples and related labels
+     """
+    #CALCOLO ESEMPI SIGNIFICATIVI
+    #QUI I DATI SONO NON SCALATI
+    sig_adv, original_sig_samples, sig_ORIGINAL_Y, non_rep, index_sig, index_non_rep = collaborative_filtering(X_FIL, Y_FIL, X_test, Y_test, adversarial_samples,adv_file_name,originalTestDataset)
 
-        #*****CALCOLO RISULTATI AVVERSARI NON FILTRATI (adversaria_samples)*****
-        prediction_test_DT = dt.predict(adversarial_samples)
-        prediction_test_RF = rf.predict(adversarial_samples)
-        prediction_test_MLP = mlp.predict(adversarial_samples)
-
-        dictionary_adversarial_samples_DT = cmDT(Y_test, prediction_test_DT)
-        dictionary_adversarial_samples_RF = cmRF(Y_test, prediction_test_RF)
-        dictionary_adversarial_samples_MLP = mlp.evaluate(prediction_test_MLP, Y_test)
-
-        printResults(dictionary_adversarial_samples_DT,dictionary_adversarial_samples_RF,dictionary_adversarial_samples_MLP, headerString="*****CALCOLO RISULTATI AVVERSARI NON FILTRATI (adversaria_samples)*****")
-
-
-        #CALCOLO ESEMPI SIGNIFICATIVI
-        #QUI I DATI SONO NON SCALATI
-        sig_adv, original_sig_samples, sig_ORIGINAL_Y, non_rep, index_sig, index_non_rep = collaborative_filtering(X_FIL, Y_FIL, X_test, Y_test, adversarial_samples,adv_file_name,originalTestDataset)
-
-        #original_sig_samples = new_scaler.transform(notScaled_original_sig_samples)
-        #sig_adv = new_scaler.transform(notScaled_sig_adv)
-
-        #pd.DataFrame(np.concatenate((asig_adv, sig_ORIGINAL_Y[:, 0].reshape(sig_ORIGINAL_Y.shape[0], 1)), axis=1)).to_csv(base_dir + "/adversarial_samples/" + adv_file_name, header=features, index=False)
-
-        #vecchia
-        #pd.DataFrame(np.concatenate((sig_adv,sig_ORIGINAL_Y[:,0].reshape(sig_ORIGINAL_Y.shape[0],1)),axis=1)).to_csv(base_dir+"/ADV_OUTPUT/adv_representative/"+adv_file_name, header=features, index=False)
-        tempCopy = originalTestDataset.iloc[index_sig].copy()
-
-        dataframe = pd.DataFrame(sig_adv, columns=featuresNoLabel)
-        tempCopy[featuresNoLabel] = dataframe[featuresNoLabel].values
-        tempCopy.to_csv(base_dir + "/updatedOutput/adv_representative/" + adv_file_name,header=originalFeatures, index=False)
-
-
-        #exit()
-
-        print('Original: '+str(original_sig_samples.shape))
-        print('ADV: ' + str(sig_adv.shape))
-
-        #*****CALCOLO RISULTATI ORIGINALI POST FILTRAGGIO (X_Test associati ad avverari rappresentativi/original_sig_samples)*****
-        predicition_original_post_fil_DT = dt.predict(original_sig_samples)
-        predicition_original_post_fil_RF = rf.predict(original_sig_samples)
-        prediction_original_post_fil_MLP = mlp.predict(original_sig_samples)
-
-        dictionary_original_sig_samples_DT= cmDT(sig_ORIGINAL_Y, predicition_original_post_fil_DT)
-        dictionary_original_sig_samples_RF = cmRF(sig_ORIGINAL_Y, predicition_original_post_fil_RF)
-        dictionary_original_sig_samples_MLP =  mlp.evaluate(prediction_original_post_fil_MLP, sig_ORIGINAL_Y)
-
-        printResults(dictionary_original_sig_samples_DT, dictionary_original_sig_samples_RF, dictionary_original_sig_samples_MLP, headerString="*****CALCOLO RISULTATI ORIGINALI POST FILTRAGGIO (X_Test associati ad avverari rappresentativi/original_sig_samples)*****")
+    return sig_adv, original_sig_samples, sig_ORIGINAL_Y, non_rep, index_sig, index_non_rep
 
 
 
 
-        #*****CALCOLO RISULTATI AVVERSARI POST FILTRAGGIO (rappresentativi/sig_adv)*****
-        prediction_adv_post_fil_DT = dt.predict(sig_adv)
-        prediction_adv_post_fil_RF = rf.predict(sig_adv)
-        prediction_adv_post_fil_MLP = mlp.predict(sig_adv)
-
-        dictionary_sig_adv_DT = cmDT(sig_ORIGINAL_Y, prediction_adv_post_fil_DT)
-        dictionary_sig_adv_RF = cmRF(sig_ORIGINAL_Y, prediction_adv_post_fil_RF)
-        dictionary_sig_adv_MLP = mlp.evaluate(prediction_adv_post_fil_MLP, sig_ORIGINAL_Y)
-
-        printResults(dictionary_sig_adv_DT, dictionary_sig_adv_RF, dictionary_sig_adv_MLP, headerString="*****CALCOLO RISULTATI AVVERSARI POST FILTRAGGIO (rappresentativi/sig_adv)*****")
 
 
-        write_Results_On_File(algorithm_under_test + "_DecisionTree", dictionary_X_Test_DT,dictionary_adversarial_samples_DT, dictionary_original_sig_samples_DT,dictionary_sig_adv_DT)
-        write_Results_On_File(algorithm_under_test + "_RandomForest", dictionary_X_Test_RF,dictionary_adversarial_samples_RF, dictionary_original_sig_samples_RF,dictionary_sig_adv_RF)
-        write_Results_On_File(algorithm_under_test + "_MLP", dictionary_X_Test_MLP,dictionary_adversarial_samples_MLP, dictionary_original_sig_samples_MLP,dictionary_sig_adv_MLP)
-
-        exit()
-
-
-        #CALCOLO METRICHE CON CLASSIFICATORI ADDESTRATI SU ESEMPI RAPPRESENTATIVI
-        #print("*******CALCOLO METRICHE CON CLASSIFICATORI ADDESTRATI SU ESEMPI RAPPRESENTATIVI NON FILTRATI******")
-        #dt = retrain(adversarial_samples, Y_test)
-        print("*******CALCOLO METRICHE CON CLASSIFICATORI ADDESTRATI SU ESEMPI AVVERSARI FILTRATI******")
-
-
-        fgsm_params_rep_test = {'clip_min': 0.0, 'clip_max': 1.1, 'confidence': 0.5, 'learning_rate': 0.1, 'batch_size': 1,
-                            'binary_search_steps': 10, 'max_iterations': 5, 'abort_early': False,
-                            'initial_const': 1}  # CW
-        fgsm_rep_test = CarliniWagnerL2(model, sess=sess)
-        adv_x_rep_test = fgsm_rep_test.generate(x, **fgsm_params_rep_test)
-
-        adv_x_rep_test = adv_x_rep_test.eval({x:X_test_adv_mlp}, session=sess)
-        adversarial_samples_test, _, Y_rep_test = sannity_check_adv(adv_x_rep_test, protocol_test, advScaler, X_test_adv_mlp, original_Y_Test)
-        adversarial_samples_test, _, Y_rep_test, non_rep, index_sig, index_non_rep = collaborative_filtering(X_FIL, Y_FIL, np.concatenate((protocol_test.reshape(protocol_test.shape[0], 1),X_test_adv_mlp),axis=1), Y_rep_test,adversarial_samples_test, originalTestDataset)
-        #per il momento evitiamo di filtrare i non rappresentativi per semplici
-
-        #prediction_rep = dt.predict(adversarial_samples_test)
-        #dict_rep = cmDT(Y_rep_test, prediction_rep)
-        #print('Accuracy of dt(non filtered): ' + str(dict_rep['accuracy']))
-        #print('Precision of dt(non filtered): ' + str(dict_rep['precision']))
-        #print('Recall of dt(non filtered): ' + str(dict_rep['recall']))
-        #print('F1 of dt(non filtered): ' + str(dict_rep['f1']))
-
-        '''
-        fgsm_params_alg2 = {'clip_min': 0.0, 'clip_max': 1.8, 'theta': 0.1, 'gamma': 0.7}  # JSMA
-        fgsm_alg2 = SaliencyMapMethod(model, sess=sess)
-        adv_x_alg2 = fgsm_alg2.generate(x, **fgsm_params_alg2)
-        adv_model_pred_alg2 = model.get_probs(adv_x_alg2)
-
-        adv_model_pred_alg2 = adv_model_pred_alg2.eval({x: X_test_adv_mlp}, session=sess)
-        adv_model_pred_alg2 = np.argmax(adv_model_pred_alg2, axis=1)
-        adv_model_pred_alg2 = np.where(adv_model_pred_alg2 == 0, 1, 0)
-        adv_model_pred_alg2 = adv_model_pred_alg2.reshape((adv_model_pred_alg2.shape[0], 1))
-
-        adv_x_alg2 = adv_x_alg2.eval({x: X_test_adv_mlp}, session=sess)
-        adversarial_samples_alg2, _, Y_alg2 = sannity_check_adv(adv_x_alg2, protocol_test, advScaler,X_test_adv_mlp, original_Y_Test)
-        adversarial_samples_alg2, _,label_comp_alg2,_ = collaborative_filtering(X_FIL, Y_FIL, np.concatenate((protocol_test.reshape(protocol_test.shape[0], 1),X_test_adv_mlp),axis=1), Y_alg2,adversarial_samples_alg2)
-
-        fgsm_params_alg3 = {'clip_min': 0.0, 'clip_max': 1.8, 'nb_candidate': 2, 'nb_classes': 2, 'overshoot': 0.1,
-                            'max_iter': 1}  # DeepFool
-        fgsm_alg3 = DeepFool(model, sess=sess)
-        adv_x_alg3 = fgsm_alg3.generate(x, **fgsm_params_alg3)
-        adv_model_pred_alg3 = model.get_probs(adv_x_alg3)
-
-        adv_model_pred_alg3 = adv_model_pred_alg3.eval({x: X_test_adv_mlp}, session=sess)
-        adv_model_pred_alg3 = np.argmax(adv_model_pred_alg3, axis=1)
-        adv_model_pred_alg3 = np.where(adv_model_pred_alg3 == 0, 1, 0)
-        adv_model_pred_alg3 = adv_model_pred_alg3.reshape((adv_model_pred_alg3.shape[0], 1))
-
-        adv_x_alg3 = adv_x_alg3.eval({x: X_test_adv_mlp}, session=sess)
-        adversarial_samples_alg3, _, Y_alg3 = sannity_check_adv(adv_x_alg3, protocol_test, advScaler,X_test_adv_mlp, original_Y_Test)
-        adversarial_samples_alg3, _,label_comp_alg3, _ = collaborative_filtering(X_FIL, Y_FIL, np.concatenate((protocol_test.reshape(protocol_test.shape[0], 1),X_test_adv_mlp),axis=1), Y_alg3,adversarial_samples_alg3)
-
-        train_adv_samples = np.concatenate((sig_adv, adversarial_samples_alg2), axis=0)
-        train_adv_labels = np.concatenate((sig_ORIGINAL_Y, label_comp_alg2), axis=0)
-
-        train_adv_samples = np.concatenate((train_adv_samples, adversarial_samples_alg3), axis=0)
-        train_adv_labels = np.concatenate((train_adv_labels, label_comp_alg3), axis=0)
-        '''
-
-        dt = advTrainDT()
-        rf = advTrainRF()
-        mlp.adv_train()
-
-        prediction_rep_DT = rf.predict(adversarial_samples_test)
-        dict_rep_DT = cmRF(Y_rep_test, prediction_rep_DT)
-
-        prediction_rep_RF = rf.predict(adversarial_samples_test)
-        dict_rep_RF = cmRF(Y_rep_test, prediction_rep_RF)
-
-        prediction_rep_MLP = mlp.predict(adversarial_samples_test)
-        dict_rep_MLP = mlp.evaluate(prediction_rep_MLP, Y_rep_test)
-
-        print('Accuracy of decision tree: ' + str(dict_rep_DT['accuracy']))
-        print('Accuracy of random forest: ' + str(dict_rep_RF['accuracy']))
-        print('Accuracy of MLP: ' + str(dict_rep_MLP['accuracy']))
-        print()
-        print('Precision of decision tree: ' + str(dict_rep_DT['precision']))
-        print('Precision of random forest: ' + str(dict_rep_RF['precision']))
-        print('Precision of MLP: ' + str(dict_rep_MLP['precision']))
-        print()
-        print('Recall of decision tree: ' + str(dict_rep_DT['recall']))
-        print('Recall of random forest: ' + str(dict_rep_RF['recall']))
-        print('Recall of MLP: ' + str(dict_rep_MLP['recall']))
-        print()
-        print('F1 of decision tree: ' + str(dict_rep_DT['f1']))
-        print('F1 of random forest: ' + str(dict_rep_RF['f1']))
-        print('F1 of MLP: ' + str(dict_rep_MLP['f1']))
-
-
-
-
-    return report
 
 
 
@@ -832,7 +670,7 @@ def sannity_check_adv(adversarial_samples, protocol_test, scaler, X_test, Y_test
 
     # nuova implementazione
     rawCopy = originalData.copy()
-    rawCopy[features_for_scaling] = not_scaled_samples[:,1:]  # controlla qui
+    rawCopy[features_for_scaling] = not_scaled_samples[:,1:]
 
     rawCopy.to_csv(base_dir + "/updatedOutput/adv_RAW/" + file_name, header=originalFeatures, index=False)
 

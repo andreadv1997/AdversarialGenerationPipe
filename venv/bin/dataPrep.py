@@ -111,7 +111,6 @@ def get_data_from_file(file, filtering = False):
     if filtering :
         header = featuresFiltering
 
-    #df = pd.read_csv(file, names=header, sep=',', dtype='unicode') DATI CICIDS
     df = pd.read_csv(file, names=header, header=0, sep=',', dtype='unicode')
     originalDataset = df.copy()
     df['Label'] = np.where(df['Label'] == 'BENIGN', 1, 0)
@@ -124,7 +123,6 @@ def get_data_from_file_Non_Rep(file, filtering = False):
     if filtering :
         header = featuresFiltering
 
-    #df = pd.read_csv(file, names=header, sep=',', dtype='unicode') DATI CICIDS
     df = pd.read_csv(file, names=header, header=0, sep=',', dtype='unicode')
     originalDataset = df.copy()
     df['Label'] = np.where(df['Label'] == 'BENIGN', 1, 0)
@@ -160,7 +158,7 @@ def preprocess_autoencoder(df, test_size=0.2):
 
     return x_train_scaled, y_train
 
-def preprocess(df, twoCol = False, scaler = None, adv=False):
+def preprocess(df, twoCol = False, adv=False):
 
 
     x = df
@@ -184,25 +182,9 @@ def preprocess(df, twoCol = False, scaler = None, adv=False):
 
     #trasformo tabella/dataframe in vettore
     x = x.values
-
-
     x = x.astype(np.float)
 
-
-    # Normalizzazione sui dati
-    #scaler = StandardScaler()
-    #x_scaled = x
-    if (scaler == None):
-        scaler = MaxAbsScaler()
-
-    #scaler = scaler.fit(x)
-    #x_scaled = scaler.transform(x) #fitto e calcolo i parametri, incapsulati nella variabile scaler
-    #x_test_scaled = scaler.transform(x_test) #qui uso direttamente scaler
-    #x_scaled = scale(x)  # fitto e calcolo i parametri, incapsulati nella variabile scaler
-
-    #return x_scaled, y, scaler
     if(adv):
         y=y.astype(np.float)
 
     return x, y, None
-    #return x_train, x_test, y_train, y_test

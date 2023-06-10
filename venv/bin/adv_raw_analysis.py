@@ -74,16 +74,14 @@ def write_Results_On_File(fileName, dict_X_Test):
         file2.write('F1, %s' % (str(dict_X_Test['f1'])))
 
 
+# SCRIPT PER IL CALCOLO INDIVIDUALE DELLE METRICHE PER ADV RAW
 if __name__ == "__main__":
 
-    #base_dir = str(Path().resolve())
     file_test = base_dir + '/updatedInput/MOD-test.csv'
-    #file_test = base_dir + '/updatedOutput/adv_representative/DeepFool_1_filt_.csv'
     dataset_test,_ = get_data_from_file(file_test)
     X_test, Y_test, _ = preprocess(dataset_test,True)
 
     file_test_adv = base_dir + '/updatedInput/ADVBASE1-baseAdv-test.csv'
-    # file_test = base_dir + '/updatedOutput/adv_representative/DeepFool_1_filt_.csv'
     dataset_test_adv, _ = get_data_from_file(file_test_adv)
     X_adv, Y_adv, _ = preprocess(dataset_test_adv, True)
 
@@ -96,7 +94,8 @@ if __name__ == "__main__":
     dt, _, _, _, _, _ = decisionTree(gridSearch=False)  # contiene il calcolo delle metriche per il file MOD-test
     rf, _, _, _, _, _ = randomForest(gridSearch=False)  # contiene il calcolo delle metriche per il file MOD-test
 
-    '''
+
+
     mypath=base_dir + '/updatedOutput/adv_RAW/'
     #read all files in updatedOutput
     fileList = [f for f in os.listdir(mypath) if os.path.isfile(os.path.join(mypath, f))]
@@ -121,7 +120,7 @@ if __name__ == "__main__":
         write_Results_On_File(fileNamePrefix + "_RandomForest", dictionary_X_adv_raw_RF)
         write_Results_On_File(fileNamePrefix + "_MLP", dictionary_X_adv_raw_MLP)
 
-    '''
+
     # *****CALCOLO RISULTATI ORIGINALI (X TEST)*****
     prediction_original_DT = dt.predict(X_test)  # previous X_test
     prediction_original_RF = rf.predict(X_test)
