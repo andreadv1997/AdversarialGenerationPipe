@@ -582,6 +582,11 @@ def collaborative_filtering(x_fil, y_fil, X_test, Y_test, adversarial_samples, f
     save_on_file_NR(dataframe_orig_GREY, file_name, "GREY", originalData, index_grey)
     print("GREY :" + str(dataframe_orig_GREY.shape))
 
+    tempCopy = originalData.iloc[index_sig_adv].copy()
+    dataframe = pd.DataFrame(sig_adv, columns=featuresNoLabel)
+    tempCopy[featuresNoLabel] = dataframe[featuresNoLabel].values
+    tempCopy.to_csv(base_dir + "/updatedOutput/adv_representative/" + file_name+".csv", header=originalFeatures,index=False)
+
 
     return sig_adv, original_sig_samples, sig_ORIGINAL_Y, nonRep_adv, index_sig_adv, index_non_rep
 
@@ -598,16 +603,16 @@ def save_on_file_NR(data, fileName, type, originalData, list_of_indexes): #VERIF
 
     if(type =="BENIGN"):
         #dataframe.to_csv(base_dir+"/ADV_OUTPUT/adv_ORIG_BEN/"+fileName, header=features_save_dataframe, index=False)
-        tempCopy.to_csv(base_dir + "/updatedOutput/adv_ORIG_BEN/" + fileName, header=originalFeatures+['Computed_Label'], index=False)
+        tempCopy.to_csv(base_dir + "/updatedOutput/adv_ORIG_BEN/" + fileName+".csv", header=originalFeatures+['Computed_Label'], index=False)
         print(tempCopy.shape)
         print(dataframe.shape)
     elif (type == "ATTACK"):
-        tempCopy.to_csv(base_dir + "/updatedOutput/adv_ORIG_ATT/" + fileName, header=originalFeatures+['Computed_Label'], index=False)
+        tempCopy.to_csv(base_dir + "/updatedOutput/adv_ORIG_ATT/" + fileName+".csv", header=originalFeatures+['Computed_Label'], index=False)
         print(tempCopy.shape)
         print(dataframe.shape)
     else:
         #dataframe.to_csv(base_dir + "/ADV_OUTPUT/adv_grey/" + fileName, header=features_save_dataframe+['Computed_Label'], index=False)
-        tempCopy.to_csv(base_dir + "/updatedOutput/adv_grey/" + fileName, header=originalFeatures + ['Computed_Label'], index=False)
+        tempCopy.to_csv(base_dir + "/updatedOutput/adv_grey/" + fileName+".csv", header=originalFeatures + ['Computed_Label'], index=False)
 
 
 
