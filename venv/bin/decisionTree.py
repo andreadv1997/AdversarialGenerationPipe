@@ -133,8 +133,8 @@ def decisionTree(gridSearch = False):
 
 
     X_train, Y_train, scaler = preprocess(dataset_train)  #modifica, test con uno scaler unico per tutti le fasi
-    X_val, Y_val, _ = preprocess(dataset_val,scaler=scaler)
-    X_test, Y_test, _ = preprocess(dataset_test,scaler=scaler)
+    X_val, Y_val, _ = preprocess(dataset_val)
+    X_test, Y_test, _ = preprocess(dataset_test)
 
     clf = None
 
@@ -153,11 +153,11 @@ def decisionTree(gridSearch = False):
     else:
         #clf = load('decisiontree.joblib')
         #clf = load('decisiontree_SingleScaler.joblib')
-        clf = load('decisiontree_NotScaled.joblib')
+        clf = load('decisiontree_NotScaled_NEW_CONFIG.joblib')
 
 
     #print("Best Param: ", clf.best_params)
-    print("Best Param: ", clf.best_params_)
+    #print("Best Param: ", clf.best_params_)
     prediction_onVal = clf.predict(X_val)
     dict = compute_metrics(Y_val, prediction_onVal)
 
@@ -169,7 +169,7 @@ def decisionTree(gridSearch = False):
          #   print("Values satisfies constraints ")
         #dump(clf,'decisiontree.joblib')
         #dump(clf, 'decisiontree_SingleScaler.joblib')
-        dump(clf, 'decisiontree_NotScaled.joblib')
+        dump(clf, 'decisiontree_NotScaled_NEW_CONFIG.joblib')
 
 
 
