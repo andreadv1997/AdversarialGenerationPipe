@@ -171,7 +171,24 @@ int_features = ['Flow_Duration', 'Total_Fwd_Packets', 'Total_Backward_Packets', 
             'Subflow_Bwd_Bytes', 'Init_Win_bytes_forward', 'Init_Win_bytes_backward', 'act_data_pkt_fwd',
             'min_seg_size_forward', 'Active_Max', 'Active_Min', 'Idle_Max', 'Idle_Min']
 
-to_update_feature = [ ('Flow_Bytes/s',4,5,1) , ('Flow_Packets/s',2,3,1), ('Fwd_Packets/s',2,1), ('Bwd_Packets/s',3,1)]
+#to_update_feature = [ ('Flow_Bytes/s',4,5,1) , ('Flow_Packets/s',2,3,1), ('Fwd_Packets/s',2,1), ('Bwd_Packets/s',3,1)]
+to_update_feature = [ ('Flow_Bytes/s','Total_Length_of_Fwd_Packets','Total_Length_of_Bwd_Packets','Flow_Duration'),
+                      ('Flow_Packets/s','Total_Fwd_Packets', 'Total_Backward_Packets','Flow_Duration'),
+                      ('Fwd_Packets/s','Total_Fwd_Packets','Flow_Duration'),
+                      ('Bwd_Packets/s','Total_Backward_Packets','Flow_Duration'),
+                      ('Fwd_Packet_Length_Mean','Total_Length_of_Fwd_Packets','Total_Fwd_Packets'),
+                      ('Bwd_Packet_Length_Mean','Total_Length_of_Bwd_Packets','Total_Backward_Packets'),
+                      ('Flow_IAT_Mean','Fwd_IAT_Total','Bwd_IAT_Total','Total_Fwd_Packets','Total_Backward_Packets'),
+                      ('Flow_IAT_Max','Fwd_IAT_Max','Bwd_IAT_Max'),
+                      ('Flow_IAT_Min','Fwd_IAT_Min','Bwd_IAT_Min'),
+                      ('Fwd_IAT_Mean','Fwd_IAT_Total','Total_Fwd_Packets'),
+                      ('Bwd_IAT_Mean','Bwd_IAT_Total','Total_Backward_Packets'),
+                      ('Min_Packet_Length','Fwd_Packet_Length_Min','Bwd_Packet_Length_Min'),
+                      ('Max_Packet_Length','Fwd_Packet_Length_Max','Bwd_Packet_Length_Max'),
+                      ('Packet_Length_Mean','Total_Length_of_Fwd_Packets','Total_Length_of_Bwd_Packets','Total_Fwd_Packets','Total_Backward_Packets'),
+                      ('Packet_Length_Std','Packet_Length_Variance'),
+                      ('PSH_Flag_Count','Fwd_PSH_Flags','Bwd_PSH_Flags'),
+                      ('URG_Flag_Count','Fwd_URG_Flags','Bwd_URG_Flags')]
 
 #algorithm_under_test = ""
 
@@ -682,13 +699,50 @@ def sannity_check_adv(not_scaled_samples, protocol_test, X_test, Y_test, origina
         not_scaled_samples[:,index] = np.round(not_scaled_samples[:,index])
 
     for index_1 in range(0, len(to_update_feature)):
-
+        feat = to_update_feature[index_1][0]
+        '''
         if(len(to_update_feature[index_1]) == 4):
-            not_scaled_samples[:,features.index(to_update_feature[index_1][0])] = (not_scaled_samples[:,to_update_feature[index_1][1]] + not_scaled_samples[:,to_update_feature[index_1][2]]) / not_scaled_samples[:,to_update_feature[index_1][3]]
+            #not_scaled_samples[:,features.index(to_update_feature[index_1][0])] = (not_scaled_samples[:,to_update_feature[index_1][1]] + not_scaled_samples[:,to_update_feature[index_1][2]]) / not_scaled_samples[:,to_update_feature[index_1][3]] * 1000
+            not_scaled_samples[:, features.index(to_update_feature[index_1][0])] = (not_scaled_samples[:,features.index(to_update_feature[index_1][1])] + not_scaled_samples[:,features.index(to_update_feature[index_1][2])]) / not_scaled_samples[:,features.index(to_update_feature[index_1][3])] * 1000000
 
         if (len(to_update_feature[index_1]) == 3):
-            not_scaled_samples[:, features.index(to_update_feature[index_1][0])] = (not_scaled_samples[:,to_update_feature[index_1][1]]) / not_scaled_samples[:,to_update_feature[ index_1][2]]
-
+            #not_scaled_samples[:, features.index(to_update_feature[index_1][0])] = (not_scaled_samples[:,to_update_feature[index_1][1]]) / not_scaled_samples[:,to_update_feature[ index_1][2]] * 1000
+            not_scaled_samples[:, features.index(to_update_feature[index_1][0])] = (not_scaled_samples[:,features.index(to_update_feature[index_1][1])]) / not_scaled_samples[:, features.index(to_update_feature[index_1][2])] * 1000000
+        '''
+        if feat == 'Fwd_Packet_Length_Mean':
+            not_scaled_samples[:, features.index(feat)]=not_scaled_samples[:, features.index('Total_Length_of_Fwd_Packets')]/not_scaled_samples[:, features.index('Total_Fwd_Packets')]
+        elif feat == 'Bwd_Packet_Length_Mean':
+            not_scaled_samples[:, features.index(feat)] = not_scaled_samples[:, features.index('Total_Length_of_Bwd_Packets')] / not_scaled_samples[:, features.index('Total_Backward_Packets')]
+        elif feat == 'Flow_Bytes/s':
+            not_scaled_samples[:, features.index(feat)] = ((not_scaled_samples[:,features.index('Total_Length_of_Fwd_Packets')]) + (not_scaled_samples[:,features.index('Total_Length_of_Bwd_Packets')]))/ not_scaled_samples[:, features.index('Flow_Duration')] * 1000000
+        elif feat == 'Flow_Packets/s':
+            not_scaled_samples[:, features.index(feat)] = ((not_scaled_samples[:,features.index('Total_Fwd_Packets')]) + (not_scaled_samples[:, features.index('Total_Backward_Packets')])) / not_scaled_samples[:,features.index('Flow_Duration')] * 1000000
+        elif feat == 'Flow_IAT_Mean':
+            not_scaled_samples[:, features.index(feat)] = ((not_scaled_samples[:,features.index('Fwd_IAT_Total')]) + (not_scaled_samples[:, features.index('Bwd_IAT_Total')])) / (not_scaled_samples[:,features.index('Total_Fwd_Packets')]+ not_scaled_samples[:,features.index('Total_Backward_Packets')]-2)
+        elif feat == 'Flow_IAT_Max':
+            not_scaled_samples[:, features.index(feat)] = np.maximum(not_scaled_samples[:, features.index('Fwd_IAT_Max')],not_scaled_samples[:, features.index('Bwd_IAT_Max')])
+        elif feat == 'Flow_IAT_Min':
+            not_scaled_samples[:, features.index(feat)] = np.minimum(not_scaled_samples[:, features.index('Fwd_IAT_Min')],not_scaled_samples[:, features.index('Bwd_IAT_Min')])
+        elif feat == 'Fwd_IAT_Mean':
+            not_scaled_samples[:, features.index(feat)] = not_scaled_samples[:, features.index('Fwd_IAT_Total')] / (not_scaled_samples[:, features.index('Total_Fwd_Packets')]-1)
+        elif feat == 'Bwd_IAT_Mean':
+            not_scaled_samples[:, features.index(feat)] = not_scaled_samples[:, features.index('Bwd_IAT_Total')] / (not_scaled_samples[:, features.index('Total_Backward_Packets')] - 1)
+        elif feat == 'Fwd_Packets/s':
+            not_scaled_samples[:, features.index(feat)] = (not_scaled_samples[:,features.index('Total_Fwd_Packets')]) / not_scaled_samples[:,features.index('Flow_Duration')] * 1000000
+        elif feat == 'Bwd_Packets/s':
+            not_scaled_samples[:, features.index(feat)] = (not_scaled_samples[:,features.index('Total_Backward_Packets')]) / not_scaled_samples[:,features.index('Flow_Duration')] * 1000000
+        elif feat == 'Min_Packet_Length':
+            not_scaled_samples[:, features.index(feat)] = np.minimum(not_scaled_samples[:, features.index('Fwd_Packet_Length_Min')],not_scaled_samples[:, features.index('Bwd_Packet_Length_Min')])
+        elif feat == 'Max_Packet_Length':
+            not_scaled_samples[:, features.index(feat)] = np.maximum(not_scaled_samples[:, features.index('Fwd_Packet_Length_Max')],not_scaled_samples[:, features.index('Bwd_Packet_Length_Max')])
+        elif feat == 'Packet_Length_Mean':
+            not_scaled_samples[:, features.index(feat)] = ((not_scaled_samples[:, features.index('Total_Length_of_Fwd_Packets')]) + (not_scaled_samples[:, features.index('Total_Length_of_Bwd_Packets')])) / (not_scaled_samples[:, features.index('Total_Fwd_Packets')] + not_scaled_samples[:, features.index('Total_Backward_Packets')])
+        elif feat == 'Packet_Length_Std':
+            not_scaled_samples[:, features.index(feat)] = np.sqrt(not_scaled_samples[:, features.index('Packet_Length_Variance')])
+        elif feat == 'PSH_Flag_Count':
+            not_scaled_samples[:, features.index(feat)] = not_scaled_samples[:, features.index('Fwd_PSH_Flags')] + not_scaled_samples[:, features.index('Bwd_PSH_Flags')]
+        elif feat == 'URG_Flag_Count':
+            not_scaled_samples[:, features.index(feat)] = not_scaled_samples[:, features.index('Fwd_URG_Flags')] + not_scaled_samples[:, features.index('Bwd_URG_Flags')]
 
     shape = not_scaled_samples.shape[0]
 
