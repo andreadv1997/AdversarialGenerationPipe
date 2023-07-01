@@ -127,8 +127,8 @@ def randomForest(gridSearch = False):
 
 
     X_train, Y_train, scaler = preprocess(dataset_train)
-    X_val, Y_val, _ = preprocess(dataset_val, scaler=scaler)
-    X_test, Y_test, _ = preprocess(dataset_test, scaler=scaler)
+    X_val, Y_val, _ = preprocess(dataset_val)
+    X_test, Y_test, _ = preprocess(dataset_test)
 
     #i parametri sono decisamente troppi per un tempo di esecuzione ragionevole. Per questo almeno il numero di alberi viene tenuto fisso a 50 e si usano le configurazione degli alberi definite per il decision tree classico. In caso di
     #esito negativo si aumenteranno i range

@@ -234,7 +234,7 @@ def generate_adversarial_samples(X_train=None, Y_train=None, X_test=None, Y_test
     :param num_threads: number of threads for training VALUE TO BE CHECKED
     :param adv_params: dictionary containing values adopted for training
     :param algorithm: adversarial algorithm
-    :return: dataset containing non scaled adversarial samples, array of original labels, scaler adopted for conversion, original dataset as read from file
+    :return: dataset containing adversarial, scaled and not scaled, with mock Protocol feature, array of original labels, scaler adopted for conversion, original dataset as read from file, final raw adversarial samples
     """
 
     # Object used to keep track of (and return) key accuracies
@@ -386,26 +386,30 @@ def generate_adversarial_samples(X_train=None, Y_train=None, X_test=None, Y_test
             X_test = np.delete(X_test, obj=i, axis=0)
             Y_test = np.delete(Y_test, obj=i, axis=0)
             protocol_test = np.delete(protocol_test, obj=i, axis=0)  # riaggiorna dimensione dell'array di protocol per DeepFool
-            originalTestDataset.drop(originalTestDataset.index[i], inplace=True)  ###
+            originalTestDateset.drop(originalTestDateset.index[i], inplace=True)  ###
             shape = shape - 1
         else:
             i += 1
 
     print("ADV s shape pre sanity -2")
     print(adversarial_s.shape)
-    print(originalTestDataset.shape)
-    originalTestDataset.reset_index(drop=True, inplace=True)
+    print(originalTestDateset.shape)
+    originalTestDateset.reset_index(drop=True, inplace=True)
 
     adversarial_s = np.concatenate((np.zeros(shape=(adversarial_s.shape[0], 1)), adversarial_s),axis=1)
     not_scaled_samples = advScaler.inverse_transform(adversarial_s)  # descaling
 
+    protocol_test = protocol_test.reshape(protocol_test.shape[0], 1)
+    not_scaled_samples[:, 0] = protocol_test[:, 0]
+
     # nuova implementazione
-    rawCopy = originalTestDataset.copy()
+    rawCopy = originalTestDateset.copy()
     rawCopy[features_for_scaling] = not_scaled_samples[:, 1:]
 
     rawCopy.to_csv(base_dir + "/updatedOutput/adv_RAW/" + algorithm+".csv", header=originalFeatures, index=False)
 
-    return adversarial_s, not_scaled_samples, X_test, Y_test, advScaler, originalTestDataset, rawCopy #qui vengono restituiti sia i valori non scalati che quelli scalati (sia completi di Protocollo che no)
+
+    return adversarial_s, not_scaled_samples, X_test, Y_test, advScaler, originalTestDateset, rawCopy, protocol_test #qui vengono restituiti sia i valori non scalati che quelli scalati (sia completi di Protocollo che no)
 
 
 def get_sanitize_adversarial_samples(not_scaled_items=None, original_samples= None, original_labels= None, protocol_test=None, originalTestDataset=None):
@@ -420,10 +424,10 @@ def get_sanitize_adversarial_samples(not_scaled_items=None, original_samples= No
     """
 
     # QUI I SAMPLE SONO NON SCALATI
-    adversarial_samples, original_samples, original_labels = sannity_check_adv(not_scaled_items, protocol_test, original_samples, original_labels, originalTestDataset)
+    adversarial_samples, original_samples, original_labels, protocol_test = sannity_check_adv(not_scaled_items, protocol_test, original_samples, original_labels, originalTestDataset)
     print(adversarial_samples.shape)
 
-    return adversarial_samples, original_samples, original_labels
+    return adversarial_samples, original_samples, original_labels, protocol_test
 
 
 def get_representative_samples(X_FIL=None, Y_FIL=None, X_test=None, Y_test=None, adversarial_samples=None, adv_file_name=None,originalTestDataset=None):
@@ -513,10 +517,10 @@ def collaborative_filtering(x_fil, y_fil, X_test, Y_test, adversarial_samples, f
         #score = User_item_score(index, 77, sim_matrix_30, similarity_matrix, oracle, 30)
         score = User_item_score(index, 77, sim_matrix_30, similarity_matrix, oracle, 15)
 
-
-        if (score < 0.2):
+        #thresholds updated to 0.3,0.7
+        if (score < 0.3):
             label_rec[index] = 0
-        elif (score > 0.8):
+        elif (score > 0.7):
             label_rec[index] = 1.0
         else:
             label_rec[index] = score
@@ -679,10 +683,6 @@ def sannity_check_adv(not_scaled_samples, protocol_test, X_test, Y_test, origina
     rawCopy.to_csv(base_dir + "/updatedOutput/adv_RAW/" + file_name, header=originalFeatures, index=False)
     '''
 
-
-    protocol_test = protocol_test.reshape(protocol_test.shape[0],1)
-    not_scaled_samples[:,0] = protocol_test[:,0]
-
     # qui vengono copiati i dati prima del sanity check. IN QUESTO PUNTO ANDREBBERO INSERIITE LE FEATURE CANCELLATE CHE ERANO ANDATE PERSE ALLA PRIMA LETTURA
 
     #vecchia implementazione
@@ -744,6 +744,12 @@ def sannity_check_adv(not_scaled_samples, protocol_test, X_test, Y_test, origina
         elif feat == 'URG_Flag_Count':
             not_scaled_samples[:, features.index(feat)] = not_scaled_samples[:, features.index('Fwd_URG_Flags')] + not_scaled_samples[:, features.index('Bwd_URG_Flags')]
 
+        #duplicate features
+        not_scaled_samples[:, features.index('Average_Packet_Size')] = not_scaled_samples[:, features.index('Packet_Length_Mean')]
+        not_scaled_samples[:, features.index('Avg_Fwd_Segment_Size')] = not_scaled_samples[:,features.index('Fwd_Packet_Length_Mean')]
+        not_scaled_samples[:, features.index('Avg_Bwd_Segment_Size')] = not_scaled_samples[:,features.index('Bwd_Packet_Length_Mean')]
+
+
     shape = not_scaled_samples.shape[0]
 
     i = 0
@@ -762,9 +768,9 @@ def sannity_check_adv(not_scaled_samples, protocol_test, X_test, Y_test, origina
 
 
 
-    return not_scaled_samples, X_test, Y_test
+    return not_scaled_samples, X_test, Y_test, protocol_test
 
-def write_Results_On_File(fileName, dict_X_Test, dict_Adv_Not_Filtered, dict_Original_Filtered, dict_Adv_Filtered):
+def write_Results_On_File(fileName,dict_adv_raw, dict_X_Test,dict_Adv_Not_Filtered, dict_Original_Filtered, dict_Adv_Filtered):
 
     outputDirTXT = base_dir + '/updatedOutput/outputTXT_FILTERED_NotScaled'
     outputDirCSV = base_dir + '/updatedOutput/outputCSV_FILTERED_NotScaled'
@@ -779,15 +785,17 @@ def write_Results_On_File(fileName, dict_X_Test, dict_Adv_Not_Filtered, dict_Ori
 
     with open(txtFile, "w") as file1, open(csvFile,"w") as file2 :
 
-        file1.write('Metric\t\tOriginal Test Set (X_test)\t\tNot Filtered Adversarial Samples(adv_x)\t\tOriginal Test after filtering(original_sig_samples)\t\tFiltered Adversarial Samples(sig_adv_sample)\n')
-        file1.write('Accuracy\t\t%s\t\t%s\t\t%s\t\t%s\n' % (str(dict_X_Test['accuracy']), str(dict_Adv_Not_Filtered['accuracy']), str(dict_Original_Filtered['accuracy']), str(dict_Adv_Filtered['accuracy'])))
-        file1.write('Precision\t\t%s\t\t%s\t\t%s\t\t%s\n' % (str(dict_X_Test['precision']), str(dict_Adv_Not_Filtered['precision']), str(dict_Original_Filtered['precision']), str(dict_Adv_Filtered['precision'])))
-        file1.write('Recall\t\t%s\t\t%s\t\t%s\t\t%s\n' % (str(dict_X_Test['recall']), str(dict_Adv_Not_Filtered['recall']), str(dict_Original_Filtered['recall']), str(dict_Adv_Filtered['recall'])))
-        file1.write('F1\t\t%s\t\t%s\t\t%s\t\t%s' % (str(dict_X_Test['f1']), str(dict_Adv_Not_Filtered['f1']), str(dict_Original_Filtered['f1']), str(dict_Adv_Filtered['f1'])))
+        file1.write('Metric\t\tAdv Raw\t\tOriginal Test Set (X_test related to Sanitized)\t\tNot Filtered Adversarial Samples(adv_x sanitized)\t\tOriginal Test after filtering(original_sig_samples related to representative)\t\tFiltered Adversarial Samples(sig_adv_sample representative adv)\n')
+        file1.write('Accuracy\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\n' % (str(dict_adv_raw['accuracy']),str(dict_X_Test['accuracy']), str(dict_Adv_Not_Filtered['accuracy']), str(dict_Original_Filtered['accuracy']), str(dict_Adv_Filtered['accuracy'])))
+        file1.write('Precision\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\n' % (str(dict_adv_raw['precision']),str(dict_X_Test['precision']), str(dict_Adv_Not_Filtered['precision']), str(dict_Original_Filtered['precision']), str(dict_Adv_Filtered['precision'])))
+        file1.write('Recall\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\n' % (str(dict_adv_raw['recall']),str(dict_X_Test['recall']), str(dict_Adv_Not_Filtered['recall']), str(dict_Original_Filtered['recall']), str(dict_Adv_Filtered['recall'])))
+        file1.write('F1\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s' % (str(dict_adv_raw['f1']),str(dict_X_Test['f1']), str(dict_Adv_Not_Filtered['f1']), str(dict_Original_Filtered['f1']), str(dict_Adv_Filtered['f1'])))
 
         file1.write('\n##################\n')
 
-        file1.write('MLP Accuray\t\t%s\n' % (str(dict_General_values['MLPaccuracy'])))
+        file1.write('Metric on Surrogate MLP\n')
+        file1.write('\t\tAccuracy\t\tPrecision\t\tRecall\t\tF1\n')
+        file1.write('%s\t\t%s\t\t%s\t\t%s\n' % (str(dict_General_values['MLPAccuracy']),str(dict_General_values['MLPPrecision']),str(dict_General_values['MLPRecall']),str(dict_General_values['MLPF1'])))
         file1.write('Not significant elements\t\t%s\n' % (str(dict_General_values['mod'])))
         file1.write('Significant elements\t\t%s\n'%(str(dict_General_values['not_mod'])))
         file1.write('Uncertain elements\t\t%s\n' % (str(dict_General_values['grey'])))
@@ -795,18 +803,11 @@ def write_Results_On_File(fileName, dict_X_Test, dict_Adv_Not_Filtered, dict_Ori
         file1.write('Originally BENIGN not representative\t\t%s\n' % (str(dict_General_values['originally_BENIGN_nr'])))
         file1.write('Originally ATTACK not representative\t\t%s\n' % (str(dict_General_values['originally_ATTACK_nr'])))
 
-        file2.write('Metric, Original Test Set (X_test), Not Filtered Adversarial Samples(adv_x), Original Test after filtering(original_sig_samples), Filtered Adversarial Samples(sig_adv_sample)\n')
-        file2.write('Accuracy, %s, %s, %s, %s\n' % (str(dict_X_Test['accuracy']), str(dict_Adv_Not_Filtered['accuracy']), str(dict_Original_Filtered['accuracy']), str(dict_Adv_Filtered['accuracy'])))
-        file2.write('Precision, %s, %s, %s, %s\n' % (str(dict_X_Test['precision']), str(dict_Adv_Not_Filtered['precision']), str(dict_Original_Filtered['precision']), str(dict_Adv_Filtered['precision'])))
-        file2.write('Recall, %s, %s, %s, %s\n' % (str(dict_X_Test['recall']), str(dict_Adv_Not_Filtered['recall']), str(dict_Original_Filtered['recall']), str(dict_Adv_Filtered['recall'])))
-        file2.write('F1, %s, %s, %s, %s' % (str(dict_X_Test['f1']), str(dict_Adv_Not_Filtered['f1']), str(dict_Original_Filtered['f1']), str(dict_Adv_Filtered['f1'])))
-        file2.write('MLP Accuray, %s\n' % (str(dict_General_values['MLPaccuracy'])))
-        file2.write('Not significant elements, %s\n' % (str(dict_General_values['mod'])))
-        file2.write('Significant elements, %s\n' % (str(dict_General_values['not_mod'])))
-        file2.write('Uncertain elements, %s\n' % (str(dict_General_values['grey'])))
-        file2.write('Total elements, %s' % (str(dict_General_values['total'])))
-
-
+        file2.write('Metric,Adv Raw,Original Test Set (X_test related to Sanitized),Not Filtered Adversarial Samples(adv_x sanitized),Original Test after filtering(original_sig_samples related to representative)\t\tFiltered Adversarial Samples(sig_adv_sample representative adv)\n')
+        file2.write('Accuracy,%s,%s,%s,%s,%s\n' % (str(dict_adv_raw['accuracy']), str(dict_X_Test['accuracy']), str(dict_Adv_Not_Filtered['accuracy']),str(dict_Original_Filtered['accuracy']), str(dict_Adv_Filtered['accuracy'])))
+        file2.write('Precision,%s,%s,%s,%s,%s\n' % (str(dict_adv_raw['precision']), str(dict_X_Test['precision']), str(dict_Adv_Not_Filtered['precision']),str(dict_Original_Filtered['precision']), str(dict_Adv_Filtered['precision'])))
+        file2.write('Recall,%s,%s,%s,%s,%s\n' % (str(dict_adv_raw['recall']), str(dict_X_Test['recall']), str(dict_Adv_Not_Filtered['recall']),str(dict_Original_Filtered['recall']), str(dict_Adv_Filtered['recall'])))
+        file2.write('F1,%s,%s,%s,%s,%s' % (str(dict_adv_raw['f1']), str(dict_X_Test['f1']), str(dict_Adv_Not_Filtered['f1']),str(dict_Original_Filtered['f1']), str(dict_Adv_Filtered['f1'])))
 
 
 if __name__ == '__main__':
@@ -829,10 +830,15 @@ if __name__ == '__main__':
     X_FIL, Y_FIL, _ = preprocess(datasetVal, False)
 
     protocol_test = X_test[:, 0]
-    adv_params= {'clip_min': 0.0, 'clip_max': 1.1, 'eps': 0.01}
+    #adv_params= {'clip_min': 0.0, 'clip_max': 1.1, 'eps': 0.01} #FGSM
+    #adv_params = {'clip_min': 0.0, 'clip_max': 1.1, 'theta': 0.7, 'gamma': 0.3}  # JSMA
+    #adv_params = {'clip_min': 0.0, 'clip_max': 1.1, 'nb_candidate': 2, 'nb_classes': 2, 'overshoot': 0.1, 'max_iter': 15}  # DeepFool
+    adv_params = {'clip_min': 0.0, 'clip_max': 1.1, 'eps': 0.1, 'xi': 0.5, 'num_iterations': 1}  # VirtualADV
 
+
+    algorithm = 'VirtualAdversarialMethod'
     #Generazione
-    adv_samples, not_scaled_adv, X_test, Y_test, advScaler,  originalTestDataset, rawCopy = generate_adversarial_samples(X_train=X_train, Y_train=Y_train, X_test=X_test, Y_test=Y_test, adv_params=adv_params, algorithm='FastGradientSignMethod')
+    adv_samples, not_scaled_adv, X_test, Y_test, advScaler,  originalTestDataset, rawCopy, protocol_test = generate_adversarial_samples(X_train=X_train, Y_train=Y_train, X_test=X_test, Y_test=Y_test, adv_params=adv_params, originalTestDateset=originalTestDataset,algorithm=algorithm, protocol_test=protocol_test)
 
     print(Y_test.shape)
     #test di lettura adv raw file per test disaccoppiamento pipe
@@ -842,29 +848,73 @@ if __name__ == '__main__':
     #protocol_test = X_test[:, 0]
     #sanitize_adv, X_test, Y_test = get_sanitize_adversarial_samples(X_test, X_test, Y_test, protocol_test,originalTestDataset)
     ######
+    dt, _, _, _, _, _ = decisionTree(gridSearch=False)
+    rf, _, _, _, _, _ = randomForest(gridSearch=False)
+    mlp = MultilayerPerceptron(input_dim=X_test.shape[1])
+
+    print("RAW ADV VALUES")
+    print(not_scaled_adv.shape)
+    print(X_test.shape)
+    print(Y_test.shape)
+    prediction_RAW_DT = dt.predict(not_scaled_adv)  # results related to whole dataset of Original Samples
+    prediction_RAW_RF = rf.predict(not_scaled_adv)
+    prediction_RAW_MLP = mlp.predict(not_scaled_adv)
+
+    dictionary_raw_DT = cmDT(Y_test, prediction_RAW_DT)  # .flatten per il random forest
+    dictionary_raw_RF = cmRF(Y_test, prediction_RAW_RF)
+    dictionary_raw_MLP = mlp.evaluate(prediction_RAW_MLP, Y_test)
 
 
     #Sanity Check
-    sanitize_adv, X_test, Y_test= get_sanitize_adversarial_samples(not_scaled_adv, X_test, Y_test, protocol_test, originalTestDataset)
+    sanitize_adv, X_test, Y_test, protocol_test= get_sanitize_adversarial_samples(not_scaled_adv, X_test, Y_test, protocol_test, originalTestDataset)
 
     print("SANITIZED VALUES")
     print(sanitize_adv.shape)
+    print("ORIGINAL VALUES related to SANITIZED")
+    print(X_test.shape)
     print(Y_test.shape)
+    prediction_sanitized_DT = dt.predict(sanitize_adv)  # results related to Sanitized Samples
+    prediction_sanitized_RF = rf.predict(sanitize_adv)
+    prediction_sanitized_MLP = mlp.predict(sanitize_adv)
 
-    #print(sanitize_adv[0])
+    dictionary_sanitized_DT = cmDT(Y_test, prediction_sanitized_DT)  # .flatten per il random forest
+    dictionary_sanitized_RF = cmRF(Y_test, prediction_sanitized_RF)
+    dictionary_sanitized_MLP = mlp.evaluate(prediction_sanitized_MLP, Y_test)
+
+    prediction_Original_sanitized_DT = dt.predict(X_test)  # results related to Original Samples related to Sanitezed Adversarial ones
+    prediction_Original_sanitized_RF = rf.predict(X_test)
+    prediction_Original_sanitized_MLP = mlp.predict(X_test)
+
+    dictionary_Original_sanitized_DT = cmDT(Y_test, prediction_Original_sanitized_DT)  # .flatten per il random forest
+    dictionary_Original_sanitized_RF = cmRF(Y_test, prediction_Original_sanitized_RF)
+    dictionary_Original_sanitized_MLP = mlp.evaluate(prediction_Original_sanitized_MLP, Y_test)
+
 
     sig_adv, original_sig_samples, sig_ORIGINAL_Y, non_rep, index_sig, index_non_rep=get_representative_samples(X_FIL, Y_FIL, X_test, Y_test, adversarial_samples=sanitize_adv, adv_file_name="FGSM_REP", originalTestDataset=originalTestDataset)
 
-    dt, _, _, _, _, _ = decisionTree(gridSearch=False)
-    prediction_adv_post_fil_DT = dt.predict(sig_adv)
-    dictionary_sig_adv_DT = cmDT(sig_ORIGINAL_Y, prediction_adv_post_fil_DT)
-    print('Accuracy of decision tree: ' + str(dictionary_sig_adv_DT['accuracy']))
-    print()
-    print('Precision of decision tree: ' + str(dictionary_sig_adv_DT['precision']))
-    print()
-    print('Recall of decision tree: ' + str(dictionary_sig_adv_DT['recall']))
-    print()
-    print('F1 of decision tree: ' + str(dictionary_sig_adv_DT['f1']))
+    prediction_orig_sig_DT = dt.predict(original_sig_samples)  # results related to Original Samples related to Representative Adversarial ones
+    prediction_orig_sig_RF = rf.predict(original_sig_samples)
+    prediction_orig_sig_MLP = mlp.predict(original_sig_samples)
+
+    dictionary_orig_sig_DT = cmDT(sig_ORIGINAL_Y, prediction_orig_sig_DT)  # .flatten per il random forest
+    dictionary_orig_sig_RF = cmRF(sig_ORIGINAL_Y, prediction_orig_sig_RF)
+    dictionary_orig_sig_MLP = mlp.evaluate(prediction_orig_sig_MLP, sig_ORIGINAL_Y)
+
+    prediction_sig_adv_DT = dt.predict(sig_adv)  # results related to Original Samples related to Sanitezed ones
+    prediction_sig_adv_RF = rf.predict(sig_adv)
+    prediction_sig_adv_MLP = mlp.predict(sig_adv)
+
+    dictionary_sig_adv_DT = cmDT(sig_ORIGINAL_Y, prediction_sig_adv_DT)  # .flatten per il random forest
+    dictionary_sig_adv_RF = cmRF(sig_ORIGINAL_Y, prediction_sig_adv_RF)
+    dictionary_sig_adv_MLP = mlp.evaluate(prediction_sig_adv_MLP, sig_ORIGINAL_Y)
+
+    write_Results_On_File(algorithm+"_DT",dictionary_raw_DT, dictionary_Original_sanitized_DT,dictionary_sanitized_DT,dictionary_orig_sig_DT,dictionary_sig_adv_DT)
+    write_Results_On_File(algorithm + "_RF", dictionary_raw_RF, dictionary_Original_sanitized_RF,dictionary_sanitized_RF, dictionary_orig_sig_RF, dictionary_sig_adv_RF)
+    write_Results_On_File(algorithm + "_MLP", dictionary_raw_MLP, dictionary_Original_sanitized_MLP,dictionary_sanitized_MLP, dictionary_orig_sig_MLP, dictionary_sig_adv_MLP)
+
+
+
+
 
 
 

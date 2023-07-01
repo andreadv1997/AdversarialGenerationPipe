@@ -60,8 +60,8 @@ class MultilayerPerceptron():
             dataset_test,_ = get_data_from_file(file_test)
 
             X_train, Y_train, scaler = preprocess(dataset_train, True)
-            X_val, Y_val, _ = preprocess(dataset_val, True,scaler=scaler)
-            X_test, Y_test, _ = preprocess(dataset_test, True,scaler=scaler)
+            X_val, Y_val, _ = preprocess(dataset_val, True)
+            X_test, Y_test, _ = preprocess(dataset_test, True)
 
             history = self.train(X_train, Y_train)
 
