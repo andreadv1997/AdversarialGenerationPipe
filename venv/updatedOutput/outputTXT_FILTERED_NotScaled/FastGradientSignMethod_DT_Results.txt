@@ -1,15 +1,15 @@
 Metric		Adv Raw		Original Test Set (X_test related to Sanitized)		Not Filtered Adversarial Samples(adv_x sanitized)		Original Test after filtering(original_sig_samples related to representative)		Filtered Adversarial Samples(sig_adv_sample representative adv)
-Accuracy		0.644847946162		0.994880421268		0.583558838587		0.985182746131		0.895949950609
-Precision		0.673802087301		0.996681660644		1.0		0.984833164813		1.0
-Recall		0.561551647514		0.998153755262		0.579499298427		1.0		0.891854893908
-F1		0.612577048272		0.997417164785		0.73377594913		0.992358634743		0.942836468886
+Accuracy		0.644847946162		0.994880421268		0.583558838587		0.985897837668		0.886555938577
+Precision		0.673802087301		0.996681660644		1.0		0.985507246377		1.0
+Recall		0.561551647514		0.998153755262		0.579499298427		1.0		0.881699346405
+F1		0.612577048272		0.997417164785		0.73377594913		0.992700729927		0.937130948246
 ##################
 Metric on Surrogate MLP
 		Accuracy		Precision		Recall		F1
 0.497016062472		0.471176470588		0.0506705465587		0.0915010281014
-Not significant elements		8561
-Significant elements		3037
-Uncertain elements		2075
+Not significant elements		8443
+Significant elements		3191
+Uncertain elements		2039
 Total elements		13673
-Originally BENIGN not representative		15
-Originally ATTACK not representative		8546
+Originally BENIGN not representative		0
+Originally ATTACK not representative		8443

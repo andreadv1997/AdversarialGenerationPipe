@@ -717,12 +717,12 @@ def sannity_check_adv(not_scaled_samples, protocol_test, X_test, Y_test, origina
             not_scaled_samples[:, features.index(feat)] = ((not_scaled_samples[:,features.index('Total_Length_of_Fwd_Packets')]) + (not_scaled_samples[:,features.index('Total_Length_of_Bwd_Packets')]))/ not_scaled_samples[:, features.index('Flow_Duration')] * 1000000
         elif feat == 'Flow_Packets/s':
             not_scaled_samples[:, features.index(feat)] = ((not_scaled_samples[:,features.index('Total_Fwd_Packets')]) + (not_scaled_samples[:, features.index('Total_Backward_Packets')])) / not_scaled_samples[:,features.index('Flow_Duration')] * 1000000
-        elif feat == 'Flow_IAT_Mean':
-            not_scaled_samples[:, features.index(feat)] = ((not_scaled_samples[:,features.index('Fwd_IAT_Total')]) + (not_scaled_samples[:, features.index('Bwd_IAT_Total')])) / (not_scaled_samples[:,features.index('Total_Fwd_Packets')]+ not_scaled_samples[:,features.index('Total_Backward_Packets')]-2)
-        elif feat == 'Flow_IAT_Max':
-            not_scaled_samples[:, features.index(feat)] = np.maximum(not_scaled_samples[:, features.index('Fwd_IAT_Max')],not_scaled_samples[:, features.index('Bwd_IAT_Max')])
-        elif feat == 'Flow_IAT_Min':
-            not_scaled_samples[:, features.index(feat)] = np.minimum(not_scaled_samples[:, features.index('Fwd_IAT_Min')],not_scaled_samples[:, features.index('Bwd_IAT_Min')])
+        #elif feat == 'Flow_IAT_Mean':
+        #    not_scaled_samples[:, features.index(feat)] = ((not_scaled_samples[:,features.index('Fwd_IAT_Total')]) + (not_scaled_samples[:, features.index('Bwd_IAT_Total')])) / (not_scaled_samples[:,features.index('Total_Fwd_Packets')]+ not_scaled_samples[:,features.index('Total_Backward_Packets')]-2)
+        #elif feat == 'Flow_IAT_Max':
+        #    not_scaled_samples[:, features.index(feat)] = np.maximum(not_scaled_samples[:, features.index('Fwd_IAT_Max')],not_scaled_samples[:, features.index('Bwd_IAT_Max')])
+        #elif feat == 'Flow_IAT_Min':
+        #    not_scaled_samples[:, features.index(feat)] = np.minimum(not_scaled_samples[:, features.index('Fwd_IAT_Min')],not_scaled_samples[:, features.index('Bwd_IAT_Min')])
         elif feat == 'Fwd_IAT_Mean':
             not_scaled_samples[:, features.index(feat)] = not_scaled_samples[:, features.index('Fwd_IAT_Total')] / (not_scaled_samples[:, features.index('Total_Fwd_Packets')]-1)
         elif feat == 'Bwd_IAT_Mean':
@@ -889,8 +889,8 @@ if __name__ == '__main__':
     dictionary_Original_sanitized_RF = cmRF(Y_test, prediction_Original_sanitized_RF)
     dictionary_Original_sanitized_MLP = mlp.evaluate(prediction_Original_sanitized_MLP, Y_test)
 
-
-    sig_adv, original_sig_samples, sig_ORIGINAL_Y, non_rep, index_sig, index_non_rep=get_representative_samples(X_FIL, Y_FIL, X_test, Y_test, adversarial_samples=sanitize_adv, adv_file_name="FGSM_REP", originalTestDataset=originalTestDataset)
+    #AGGIORNARE VALORE DEL FILE NAME PER EVITARE SOVRASCRIZIONI
+    sig_adv, original_sig_samples, sig_ORIGINAL_Y, non_rep, index_sig, index_non_rep=get_representative_samples(X_FIL, Y_FIL, X_test, Y_test, adversarial_samples=sanitize_adv, adv_file_name=algorithm, originalTestDataset=originalTestDataset)
 
     prediction_orig_sig_DT = dt.predict(original_sig_samples)  # results related to Original Samples related to Representative Adversarial ones
     prediction_orig_sig_RF = rf.predict(original_sig_samples)
